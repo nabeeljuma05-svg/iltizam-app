@@ -1,16 +1,14 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import Anthropic from '@anthropic-ai/sdk';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(express.json());
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 const SYSTEM_PROMPT = `أنت مدرب شخصي داخل تطبيق لتتبع العادات والأهداف. المستخدم يحاول الالتزام بهدف أو ترك عادة سيئة معينة، وفي نهاية كل يوم يكتب وش سوى بخصوصها.
 مهمتك: قيّم مدى التزامه بهدفه اليوم بعلامة صحيحة من 0 إلى 10 (10 = التزام كامل ومثالي، 0 = فشل تام بالالتزام)، مع ملاحظة قصيرة جداً (جملة إلى جملتين كحد أقصى) بالعربية، صادقة لكن متفهمة ومشجعة حتى لو كانت العلامة منخفضة.
@@ -27,18 +25,24 @@ app.post('/api/evaluate', async (req, res) => {
     const descLine = habitDescription ? `\nوصف إضافي: ${habitDescription}` : '';
     const userContent = `الهدف الذي يحاول المستخدم الالتزام به: "${habitName}"${descLine}\n\nوش سوى المستخدم اليوم بخصوص هالهدف:\n"${logText}"`;
 
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userContent }],
+    const geminiRes = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: userContent }] }],
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        generationConfig: { responseMimeType: 'application/json' },
+      }),
     });
 
-    const raw = message.content
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join('');
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
+      console.error('Gemini error:', errText);
+      throw new Error('Gemini request failed');
+    }
 
+    const data = await geminiRes.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const cleaned = raw.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);
 
