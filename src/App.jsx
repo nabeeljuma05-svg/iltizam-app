@@ -5,20 +5,20 @@ import { supabase } from './lib/supabase';
 import Auth from './Auth';
 
 const COLORS = {
-  ink: '#20303F',
-  mist: '#EEF2EE',
-  slate: '#6B7280',
-  slateLight: '#9CA39C',
-  border: '#E2E5DF',
-  gold: '#B8863B',
-  goldSoft: '#FBF1E0',
-  goldText: '#8A6422',
-  moss: '#4F7A5B',
-  mossSoft: '#E9F1EA',
-  mossText: '#355940',
-  brick: '#A8503D',
-  brickSoft: '#F7EAE7',
-  brickText: '#7C3A2A',
+  ink: '#1A1A1A',
+  mist: '#F4F4F4',
+  slate: '#5A5A5A',
+  slateLight: '#9A9A9A',
+  border: '#E0E0E0',
+  gold: '#D91F2B',
+  goldSoft: '#FCE4E5',
+  goldText: '#A11620',
+  moss: '#1B1B1B',
+  mossSoft: '#EDEDED',
+  mossText: '#1B1B1B',
+  brick: '#D4AF37',
+  brickSoft: '#FBF4DC',
+  brickText: '#8A6D00',
 };
 
 const BODY_FONT = "'IBM Plex Sans Arabic', sans-serif";
@@ -455,6 +455,11 @@ function HabitCard({ habit, entry, inputValue, onChangeInput, isEvaluating, erro
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-bold" style={{ color: COLORS.ink }}>{habit.name}</h3>
+              {entry.score === 10 && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.gold, color: '#FFFFFF' }}>
+                  🔴⚫ SIUUU!
+                </span>
+              )}
               <button onClick={onRedo} className="p-1 shrink-0" aria-label="إعادة التسجيل">
                 <RotateCcw size={15} color={COLORS.slateLight} />
               </button>
@@ -631,6 +636,13 @@ function HistoryTab({ habits, history, selectedId, setSelectedId }) {
 
   const avg = data.length ? (data.reduce((s, d) => s + d.score, 0) / data.length).toFixed(1) : null;
 
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+  const weekData = data.filter(d => d.fullDate >= sevenDaysAgoStr);
+  const weekAvg = weekData.length ? (weekData.reduce((s, d) => s + d.score, 0) / weekData.length).toFixed(1) : null;
+  const weekColors = weekAvg !== null ? scoreColor(Math.round(weekAvg)) : null;
+
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-bold" style={{ color: COLORS.ink }}>سجل التقدم</h2>
@@ -658,6 +670,20 @@ function HistoryTab({ habits, history, selectedId, setSelectedId }) {
         </Card>
       ) : (
         <>
+          {weekAvg !== null && (
+            <Card style={{ backgroundColor: weekColors.bg, borderColor: weekColors.ring }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold" style={{ color: weekColors.text }}>تقرير آخر 7 أيام</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: weekColors.text }}>
+                    {weekAvg}<span className="text-sm"> / 10</span>
+                  </p>
+                </div>
+                <ScoreStamp score={Math.round(weekAvg)} size={48} colorOverride={weekColors} />
+              </div>
+            </Card>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <Card>
               <p className="text-xs font-medium" style={{ color: COLORS.slateLight }}>المعدل العام</p>
